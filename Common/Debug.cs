@@ -1,7 +1,15 @@
-﻿using UnityEngine;
+﻿using BepInEx.Logging;
+using UnityEngine;
 
 public static class ModDebug
 {
+    private static ManualLogSource Logger { get; set; }
+
+    public static void SetLogger(ManualLogSource logger)
+    {
+        Logger = logger;
+    }
+
     public static void Assert(bool condition)
     {
         UnityEngine.Assertions.Assert.IsTrue(condition);
@@ -9,11 +17,19 @@ public static class ModDebug
 
     public static void Log(object message)
     {
-        UnityEngine.Debug.Log(message);
+        Logger.Log(LogLevel.Info, message);
     }
     public static void Error(object message)
     {
-        UnityEngine.Debug.LogError(message);
+        Logger.Log( LogLevel.Error, message);
+    }
+
+    public static void Trace(object message)
+    {
+        #if TRACE
+        Logger.Log(LogLevel.Info, "AUTONAV-" + message);
+        //BepInEx.Logging.
+        #endif
     }
 
     public static void LogPlanetType(PlanetData planet)
