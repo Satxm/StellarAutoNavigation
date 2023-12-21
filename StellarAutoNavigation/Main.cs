@@ -24,6 +24,8 @@ namespace AutoNavigate
 
         private void Start()
         {
+            ModDebug.SetLogger(Logger);
+
             __this = this;
             s_NavigateInstance = new AutoStellarNavigation(GetNavigationConfig());
 
@@ -177,7 +179,7 @@ namespace AutoNavigate
         [HarmonyPatch(typeof(PlayerMove_Sail), "GameTick")]
         private class SailMode_AutoNavigate
         {
-            private static Quaternion oTargetURot;
+            private static VectorLF3 oTargetURot;
 
             private static void Prefix(PlayerMove_Sail __instance)
             {
@@ -188,7 +190,8 @@ namespace AutoNavigate
                     return;
 
                 ++__instance.controller.input0.y;
-                oTargetURot = __instance.sailPoser.targetURot;
+                //oTargetURot = __instance.sailPoser.targetURot;
+                oTargetURot = __instance.controller.fwdRayUDir;
 
                 if (s_NavigateInstance.IsCurNavStar)
                     s_NavigateInstance.StarNavigation(__instance);
@@ -207,7 +210,9 @@ namespace AutoNavigate
                 if (GameMain.localPlanet != null ||
                     s_NavigateInstance.target.IsVaild())
                 {
-                    __instance.sailPoser.targetURot = oTargetURot;
+                    //__instance.sailPoser.targetURot = oTargetURot;
+                    __instance.controller.fwdRayUDir = oTargetURot;
+                    __instance.sailPoser.enabled = true;
                     s_NavigateInstance.HandlePlayerInput();
                 }
             }
@@ -226,11 +231,18 @@ namespace AutoNavigate
             /// </summary>
             private static void Prefix(PlayerMove_Fly __instance)
             {
+                ModDebug.Trace("Begin FlyMode_TrySwitchToSail.PreFix");
                 if (!s_NavigateInstance.enable)
+                {
+                    ModDebug.Trace("No navigation, exiting");
                     return;
+                }
 
                 if (__instance.player.movementState != EMovementState.Fly)
+                {
+                    ModDebug.Trace("Movement != fly");
                     return;
+                }
 
                 if (s_NavigateInstance.DetermineArrive())
                 {
@@ -239,19 +251,26 @@ namespace AutoNavigate
                 }
                 else if (__instance.mecha.thrusterLevel < 2)
                 {
+                    ModDebug.Trace("Thruster level too low");
                     s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
                 }
                 else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
                 {
+                    ModDebug.Trace("Mecha energy too low");
                     s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
                 }
                 else
                 {
+                    ModDebug.Trace("In else");
                     ++__instance.controller.input1.y;
 
                     if (__instance.currentAltitude > sailMinAltitude)
+                    {
+                        ModDebug.Trace("Switch to sail");
                         AutoStellarNavigation.Fly.TrySwtichToSail(__instance);
+                    }
                 }
+                ModDebug.Trace("End FlyMode_TrySwitchToSail.PreFix");
             }
         }
 
@@ -266,11 +285,19 @@ namespace AutoNavigate
             /// </summary>
             private static void Postfix(PlayerMove_Walk __instance, ref bool __result)
             {
+                ModDebug.Trace("Begin FlyMode_TrySwitchToSail.PostFix");
+
                 if (!s_NavigateInstance.enable)
+                {
+                    ModDebug.Trace("No navigation, exiting");
                     return;
+                }
 
                 if (!s_NavigateInstance.target.IsVaild())
+                {
+                    ModDebug.Trace("Navigation point invalid, exiting");
                     return;
+                }
 
                 if (s_NavigateInstance.DetermineArrive())
                 {
@@ -279,18 +306,23 @@ namespace AutoNavigate
                 }
                 else if (__instance.mecha.thrusterLevel < 1)
                 {
+                    ModDebug.Trace("Thruster level too low");
                     s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
                 }
                 else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
                 {
+                    ModDebug.Trace("Mecha energy too low");
                     s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
                 }
                 else
                 {
+                    ModDebug.Trace("Switching to fly mode");
                     AutoStellarNavigation.Walk.TrySwitchToFly(__instance);
                     //切换至Fly Mode 中对 UpdateJump 方法进行拦截
                     __result = true;
                 }
+
+                ModDebug.Trace("End FlyMode_TrySwitchToSail.PostFix");
             }
         }
 
