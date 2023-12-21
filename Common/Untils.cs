@@ -16,7 +16,9 @@ public class Utils
                 gfxType = "Direct3D11";
                 break;
 
+#pragma warning disable CS0618 // Type or member is obsolete
             case GraphicsDeviceType.OpenGL2:
+#pragma warning restore CS0618 // Type or member is obsolete
                 gfxType = "OpenGL2";
                 break;
 
@@ -28,7 +30,9 @@ public class Utils
                 gfxType = "OpenGLES3";
                 break;
 
+#pragma warning disable CS0618 // Type or member is obsolete
             case GraphicsDeviceType.PlayStation3:
+#pragma warning restore CS0618 // Type or member is obsolete
                 gfxType = "PlayStation3";
                 break;
 

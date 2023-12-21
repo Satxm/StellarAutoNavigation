@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-class ModDebug
+public static class ModDebug
 {
     public static void Assert(bool condition)
     {

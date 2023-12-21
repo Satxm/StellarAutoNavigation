@@ -301,18 +301,18 @@ namespace AutoNavigate
             if (!enable)
                 return;
 
-            if (VFInput._moveForward.onDown ||
-                VFInput._moveBackward.onDown ||
-                VFInput._moveLeft.onDown ||
-                VFInput._moveRight.onDown)
-            {
-                Arrive();
-            }
+            //if (VFInput._moveForward.onDown ||
+            //    VFInput._moveBackward.onDown ||
+            //    VFInput._moveLeft.onDown ||
+            //    VFInput._moveRight.onDown)
+            //{
+            //    Arrive();
+            //}
         }
 
         public bool Arrive(string extraTip = null)
         {
-            string tip = "导航模式结束".LocalText();
+            string tip = "Navigation Mode Ended".LocalText();
 
             if (extraTip != null)
                 tip += ("-" + extraTip);

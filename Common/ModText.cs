@@ -8,11 +8,11 @@ public static class ModTranslate
     static Dictionary<string, string> enusDict = new Dictionary<string, string>
     {
     //StellarAutoNavigation
-        { "驱动引擎等级过低","Thruster Level Too Low" },
-        { "机甲能量过低","Mecha Energy Too Low" },
-        { "星际自动导航","Stellar Auto Navigation" },
-        { "星系自动导航","Galaxy Auto Navigation" },
-        { "导航模式结束","Navigation Mode Ended" },
+        { "Thruster Level Too Low","驱动引擎等级过低" },
+        { "Mecha Energy Too Low","机甲能量过低" },
+        { "Stellar Auto Navigation","星际自动导航" },
+        { "Galaxy Auto Navigation","星系自动导航" },
+        { "Navigation Mode Ended","导航模式结束" },
     //BetterStarmap
         { "星图功能","Starmap Features" },
         { "星球细节预览","StarDetailsPreview" },
@@ -28,7 +28,7 @@ public static class ModTranslate
 
     public static string LocalText(this string text)
     {
-        if (Localization.language == Language.zhCN)
+        if (!Localization.isZHCN)
         {
             return text;
         }
