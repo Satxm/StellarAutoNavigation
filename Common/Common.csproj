@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProjectGuid>{43CACCED-1C08-475C-80C9-8A77158A4BD9}</ProjectGuid>
+    <ProjectGuid>{B23E5D13-2CDA-4E1F-96C1-E13C7F95C61F}</ProjectGuid>
     <RootNamespace>Common</RootNamespace>
     <AssemblyName>Common</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>

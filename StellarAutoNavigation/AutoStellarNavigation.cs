@@ -301,13 +301,13 @@ namespace AutoNavigate
             if (!enable)
                 return;
 
-            //if (VFInput._moveForward.onDown ||
-            //    VFInput._moveBackward.onDown ||
-            //    VFInput._moveLeft.onDown ||
-            //    VFInput._moveRight.onDown)
-            //{
-            //    Arrive();
-            //}
+            if (VFInput._moveForward.onDown ||
+                VFInput._moveBackward.onDown ||
+                VFInput._moveLeft.onDown ||
+                VFInput._moveRight.onDown)
+            {
+                Arrive();
+            }
         }
 
         public bool Arrive(string extraTip = null)
@@ -763,12 +763,15 @@ namespace AutoNavigate
                 return false;
             }
 
-            public static bool TryEnterWarp(PlayerMove_Sail __instance)
+            public static bool TryEnterWarp(PlayerMove_Sail __instance, bool playSound = true)
             {
                 if (!__instance.player.warping && __instance.player.mecha.UseWarper())
                 {
                     __instance.player.warpCommand = true;
-                    VFAudio.Create("warp-begin", __instance.player.transform, Vector3.zero, true);
+                    if (playSound)
+                    {
+                        VFAudio.Create("warp-begin", __instance.player.transform, Vector3.zero, true);
+                    }
                     //GameMain.gameScenario.NotifyOnWarpModeEnter();
 
                     return true;
@@ -777,12 +780,15 @@ namespace AutoNavigate
                 return false;
             }
 
-            public static bool TryLeaveWarp(PlayerMove_Sail __instance)
+            public static bool TryLeaveWarp(PlayerMove_Sail __instance, bool playSound = true)
             {
                 if (__instance.player.warping)
                 {
                     __instance.player.warpCommand = false;
-                    VFAudio.Create("warp-end", __instance.player.transform, Vector3.zero, true);
+                    if (playSound)
+                    {
+                        VFAudio.Create("warp-end", __instance.player.transform, Vector3.zero, true);
+                    }
 
                     return true;
                 }

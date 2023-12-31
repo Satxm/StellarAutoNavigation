@@ -15,6 +15,22 @@
     </RestoreAdditionalProjectSources>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="icon.png" />
+    <None Remove="manifest.json" />
+    <None Remove="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="icon.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="manifest.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="README.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
@@ -28,7 +44,9 @@
     <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /y /d  &quot;$(TargetDir)\*.dll&quot; &quot;C:\Users\Jimmie\AppData\Roaming\r2modmanPlus-local\DysonSphereProgram\profiles\DSP_Default_newgame\BepInEx\plugins\Cyh-AutoStellarNavigation\&quot;&#xD;&#xA;&#xD;&#xA;" />
+  </Target>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /y /d  &quot;$(TargetDir)\*.dll&quot; &quot;C:\Users\Jimmie\AppData\Roaming\r2modmanPlus-local\DysonSphereProgram\profiles\DSP_Default_newgame\BepInEx\plugins\JClark-AutoStellarNavigation\&quot;" />
   </Target>
   <!--
   <PropertyGroup>

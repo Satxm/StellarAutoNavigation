@@ -9,7 +9,7 @@ using HarmonyLib;
 
 namespace AutoNavigate
 {
-    [BepInPlugin(__GUID__, __NAME__, "1.07")]
+    [BepInPlugin(__GUID__, __NAME__, "1.08")]
     public class AutoNavigate : BaseUnityPlugin
     {
         public const string __NAME__ = "StellarAutoNavigation";
@@ -180,6 +180,7 @@ namespace AutoNavigate
         private class SailMode_AutoNavigate
         {
             private static VectorLF3 oTargetURot;
+            private static double? lastDist;
 
             private static void Prefix(PlayerMove_Sail __instance)
             {
@@ -192,6 +193,22 @@ namespace AutoNavigate
                 ++__instance.controller.input0.y;
                 //oTargetURot = __instance.sailPoser.targetURot;
                 oTargetURot = __instance.controller.fwdRayUDir;
+
+                if (__instance.player.warping)
+                {
+                    var cdist = s_NavigateInstance.target.GetDistance(__instance.player);
+                    if (lastDist != null)
+                    {
+                        if (lastDist < cdist)
+                        {
+                            ModDebug.Trace($"Dropping out of warp, passed target - ld:{lastDist} cd:{cdist}");
+                            //We passed the target, drop out of warp, retarget
+                            AutoStellarNavigation.Warp.TryLeaveWarp(__instance, false);
+                        }
+                    }
+                    lastDist = cdist;
+                }
+
 
                 if (s_NavigateInstance.IsCurNavStar)
                     s_NavigateInstance.StarNavigation(__instance);
