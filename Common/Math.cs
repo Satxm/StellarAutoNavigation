@@ -68,7 +68,7 @@
             set;
         }
 
-        public VectorLF3 ponit
+        public VectorLF3 point
         {
             get;
             set;
@@ -79,7 +79,7 @@
 
         public Plane3D(VectorLF3 ponit, VectorLF3 normal)
         {
-            this.ponit = ponit;
+            this.point = ponit;
             this.normal = normal;
         }
 
@@ -93,7 +93,7 @@
 #if LEGACY
             double rhs = VectorLF3.Dot(__normal, __ponit) - VectorLF3.Dot(__normal, line.src);
 #else
-            double rhs = VectorLF3.Dot(normal, (ponit - line.src));
+            double rhs = VectorLF3.Dot(normal, (point - line.src));
 #endif
             double lhs = rhs / VectorLF3.Dot(normal, line.dir);
 
@@ -110,7 +110,7 @@
                 double r1 = rand.NextDouble() * 1000;
                 double r2 = rand.NextDouble() * 1000;
 
-                double rhs = normal.x * (ponit.x - r1) + normal.y * (ponit.y - r2) + normal.z * ponit.z;
+                double rhs = normal.x * (this.point.x - r1) + normal.y * (this.point.y - r2) + normal.z * this.point.z;
                 if (-0.00000001 < rhs && rhs < 0.00000001)
                     continue;
 

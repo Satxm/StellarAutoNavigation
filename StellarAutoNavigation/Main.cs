@@ -9,7 +9,7 @@ using HarmonyLib;
 
 namespace AutoNavigate
 {
-    [BepInPlugin(__GUID__, __NAME__, "1.08")]
+    [BepInPlugin(__GUID__, __NAME__, "1.09")]
     public class AutoNavigate : BaseUnityPlugin
     {
         public const string __NAME__ = "StellarAutoNavigation";
@@ -19,8 +19,9 @@ namespace AutoNavigate
         public static AutoStellarNavigation s_NavigateInstance;
         public static bool s_IsHistoryNavigated = false;
         public static ConfigEntry<double> s_NavigateMinEnergy;
+        private static double lastDist;
 
-        private Player player = null;
+        private Player player = null;  // Maybe null if controller is not inited.
 
         private void Start()
         {
@@ -39,9 +40,8 @@ namespace AutoNavigate
                 //导航开关  (K键可能会在将来版本弃用)
                 if (Input.GetKeyDown(KeyCode.Keypad0) || Input.GetKeyDown(KeyCode.K))
                 {
-                    //PlayerNavigation navigation = GameMain.mainPlayer.navigation;
-
-                    s_NavigateInstance.ToggleNavigate();
+                    lastDist = double.MaxValue;
+                    s_NavigateInstance.ToggleNavigate(player);
                 }
             }
         }
@@ -140,20 +140,16 @@ namespace AutoNavigate
 
             public static void Postfix(UIGeneralTips __instance)
             {
-                if (!s_NavigateInstance.enable)
+                if (!s_NavigateInstance.enable || !s_NavigateInstance.target.TargetSanity)
                     return;
 
                 Text modeText = Traverse.Create((object)__instance).Field("modeText").GetValue<Text>();
 
                 modeText.gameObject.SetActive(true);
                 modeText.rectTransform.anchoredPosition = anchoredPosition;
-
-                if (s_NavigateInstance.IsCurNavPlanet)
-                    modeText.text = "Stellar Auto Navigation".LocalText();
-                else if (s_NavigateInstance.IsCurNavStar)
-                    modeText.text = "Galaxy Auto Navigation".LocalText();
-
                 s_NavigateInstance.modeText = modeText;
+                s_NavigateInstance.modeText.text = string.Format("{0} Auto Navigation", s_NavigateInstance.GetText()).LocalText();
+
             }
         }
 
@@ -163,6 +159,10 @@ namespace AutoNavigate
         [HarmonyPatch(typeof(VFInput), "_sailSpeedUp", MethodType.Getter)]
         private class SailSpeedUp
         {
+            /// <summary>
+            /// Force VFInput._sailSpeedUp to be True if we need to speed up
+            /// </summary>
+            /// <param name="__result"></param>
             private static void Postfix(ref bool __result)
             {
                 if (!s_NavigateInstance.enable)
@@ -180,7 +180,7 @@ namespace AutoNavigate
         private class SailMode_AutoNavigate
         {
             private static VectorLF3 oTargetURot;
-            private static double? lastDist;
+            
 
             private static void Prefix(PlayerMove_Sail __instance)
             {
@@ -191,47 +191,36 @@ namespace AutoNavigate
                     return;
 
                 ++__instance.controller.input0.y;
-                //oTargetURot = __instance.sailPoser.targetURot;
                 oTargetURot = __instance.controller.fwdRayUDir;
 
                 if (__instance.player.warping)
                 {
                     var cdist = s_NavigateInstance.target.GetDistance(__instance.player);
-                    if (lastDist != null)
+
+                    if (lastDist < cdist)
                     {
-                        if (lastDist < cdist)
-                        {
-                            ModDebug.Trace($"Dropping out of warp, passed target - ld:{lastDist} cd:{cdist}");
-                            //We passed the target, drop out of warp, retarget
-                            AutoStellarNavigation.Warp.TryLeaveWarp(__instance, false);
-                        }
+                        ModDebug.Trace($"Dropping out of warp, passed target - ld:{lastDist} cd:{cdist}");
+                        //We passed the target, drop out of warp, retarget
+                        AutoStellarNavigation.Warp.TryLeaveWarp(__instance, false);
                     }
                     lastDist = cdist;
                 }
 
-
-                if (s_NavigateInstance.IsCurNavStar)
-                    s_NavigateInstance.StarNavigation(__instance);
-                else if (s_NavigateInstance.IsCurNavPlanet)
-                    s_NavigateInstance.PlanetNavigation(__instance);
+                s_NavigateInstance.Navigation(__instance);
             }
 
             private static void Postfix(PlayerMove_Sail __instance)
             {
-                // Sail 默认不加速
+                // In PlayerMove_Sail.GameTick, the DSP will always try to accelerate the mecha when we have enough energy
+                // because we set sailSpeedUp to be True. Recover the real value after hacking by set  sailSpeedUp to be False.
                 s_NavigateInstance.sailSpeedUp = false;
 
                 if (!s_NavigateInstance.enable)
                     return;
 
-                if (GameMain.localPlanet != null ||
-                    s_NavigateInstance.target.IsVaild())
-                {
-                    //__instance.sailPoser.targetURot = oTargetURot;
-                    __instance.controller.fwdRayUDir = oTargetURot;
-                    __instance.sailPoser.enabled = true;
-                    s_NavigateInstance.HandlePlayerInput();
-                }
+                __instance.controller.fwdRayUDir = oTargetURot;
+                // Stop Navigation if there is any input
+                s_NavigateInstance.HandlePlayerInput();
             }
         }
 
@@ -239,7 +228,7 @@ namespace AutoNavigate
         /// Fly mode
         /// </summary>
         [HarmonyPatch(typeof(PlayerMove_Fly), "GameTick")]
-        private class FlyMode_TrySwitchToSail
+        private class FlyToSail
         {
             private static float sailMinAltitude = 49.0f;
 
@@ -248,61 +237,61 @@ namespace AutoNavigate
             /// </summary>
             private static void Prefix(PlayerMove_Fly __instance)
             {
-                ModDebug.Trace("Begin FlyMode_TrySwitchToSail.PreFix");
+                //ModDebug.Trace("Begin FlyToSail.PreFix");
                 if (!s_NavigateInstance.enable)
                 {
-                    ModDebug.Trace("No navigation, exiting");
+                    //ModDebug.Trace("No navigation, exiting");
                     return;
                 }
 
                 if (__instance.player.movementState != EMovementState.Fly)
                 {
-                    ModDebug.Trace("Movement != fly");
+                    //ModDebug.Trace("Movement != fly");
                     return;
                 }
 
-                if (s_NavigateInstance.DetermineArrive())
+                if (s_NavigateInstance.DetermineArrive(__instance.player))
                 {
-                    ModDebug.Log("FlyModeArrive");
+                    //ModDebug.Log("FlyModeArrive");
                     s_NavigateInstance.Arrive();
                 }
                 else if (__instance.mecha.thrusterLevel < 2)
                 {
-                    ModDebug.Trace("Thruster level too low");
+                    //ModDebug.Trace("Thruster level too low");
                     s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
                 }
                 else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
                 {
-                    ModDebug.Trace("Mecha energy too low");
+                    //ModDebug.Trace("Mecha energy too low");
                     s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
                 }
                 else
                 {
-                    ModDebug.Trace("In else");
+                    //ModDebug.Trace("In else");
                     ++__instance.controller.input1.y;
 
                     if (__instance.currentAltitude > sailMinAltitude)
                     {
-                        ModDebug.Trace("Switch to sail");
+                        //ModDebug.Trace("Switch to sail");
                         AutoStellarNavigation.Fly.TrySwtichToSail(__instance);
                     }
                 }
-                ModDebug.Trace("End FlyMode_TrySwitchToSail.PreFix");
+                //ModDebug.Trace("End FlyToSail.PreFix");
             }
         }
 
         /// <summary>
-        /// Walk mode
+        /// WalkOrDrift mode
         /// </summary>
         [HarmonyPatch(typeof(PlayerMove_Walk), "UpdateJump")]
-        private class WalkMode_TrySwitchToFly
+        private class WalkToFLy
         {
             /// <summary>
-            /// Walk --> Fly or Arrive
+            /// WalkOrDrift --> Fly or Arrive
             /// </summary>
             private static void Postfix(PlayerMove_Walk __instance, ref bool __result)
             {
-                ModDebug.Trace("Begin FlyMode_TrySwitchToSail.PostFix");
+                ModDebug.Trace("Begin WalkToFLy.PostFix");
 
                 if (!s_NavigateInstance.enable)
                 {
@@ -310,13 +299,7 @@ namespace AutoNavigate
                     return;
                 }
 
-                if (!s_NavigateInstance.target.IsVaild())
-                {
-                    ModDebug.Trace("Navigation point invalid, exiting");
-                    return;
-                }
-
-                if (s_NavigateInstance.DetermineArrive())
+                if (s_NavigateInstance.DetermineArrive(__instance.player))
                 {
                     ModDebug.Log("WalkModeArrive");
                     s_NavigateInstance.Arrive();
@@ -334,12 +317,56 @@ namespace AutoNavigate
                 else
                 {
                     ModDebug.Trace("Switching to fly mode");
-                    AutoStellarNavigation.Walk.TrySwitchToFly(__instance);
+                    AutoStellarNavigation.WalkOrDrift.TrySwitchToFly(__instance);
                     //切换至Fly Mode 中对 UpdateJump 方法进行拦截
                     __result = true;
                 }
 
-                ModDebug.Trace("End FlyMode_TrySwitchToSail.PostFix");
+                ModDebug.Trace("End WalkToFLy.PostFix");
+            }
+        }
+
+        /// <summary>
+        /// Drift mode
+        /// </summary>
+        [HarmonyPatch(typeof(PlayerMove_Drift), "UpdateJump")]
+        private class DriftToFly
+        {
+            /// <summary>
+            /// WalkOrDrift --> Fly or Arrive
+            /// </summary>
+            private static void Postfix(PlayerMove_Drift __instance)
+            {
+                ModDebug.Trace("Begin DriftToFly.PostFix");
+
+                if (!s_NavigateInstance.enable)
+                {
+                    ModDebug.Trace("No navigation, exiting");
+                    return;
+                }
+
+                if (s_NavigateInstance.DetermineArrive(__instance.player))
+                {
+                    ModDebug.Log("DriftModeArrive");
+                    s_NavigateInstance.Arrive();
+                }
+                else if (__instance.mecha.thrusterLevel < 1)
+                {
+                    ModDebug.Trace("Thruster level too low");
+                    s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
+                }
+                else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
+                {
+                    ModDebug.Trace("Mecha energy too low");
+                    s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
+                }
+                else
+                {
+                    ModDebug.Trace("Switching to fly mode");
+                    AutoStellarNavigation.WalkOrDrift.TrySwitchToFly(__instance);
+                }
+
+                ModDebug.Trace("End DriftToFly.PostFix");
             }
         }
 
@@ -365,6 +392,34 @@ namespace AutoNavigate
                     __instance.focusStar.star != null)
                 {
                     s_NavigateInstance.target.SetTarget(__instance.focusStar.star);
+                    return;
+                }
+
+                if ((UnityEngine.Object)__instance.focusHive != (UnityEngine.Object)null &&
+                    __instance.focusHive.hive != null)
+                {
+                    s_NavigateInstance.target.SetTarget(__instance.focusHive.hive);
+                    return;
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(UIStarmap), "OnTinderClick")]
+        private class OnSetTinderIndicatorAstro
+        {
+            /// <summary>
+            /// 根据 Indicator (导航指示标) 设置导航目标
+            /// </summary>
+            private static void Postfix(UIStarmap __instance)
+            {
+                int enemyId = GameMain.mainPlayer.navigation.indicatorEnemyId;
+                if (enemyId < 0 || enemyId >= __instance.spaceSector.enemyPool.Length)
+                    enemyId = 0;
+                else if (__instance.spaceSector.enemyPool[enemyId].id == 0 || __instance.spaceSector.enemyPool[enemyId].dfTinderId == 0)
+                    enemyId = 0;
+                if (enemyId != 0)
+                {
+                    s_NavigateInstance.target.SetTarget(__instance.spaceSector, enemyId);
                     return;
                 }
             }

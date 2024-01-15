@@ -12,6 +12,8 @@ public static class ModTranslate
         { "Mecha Energy Too Low","机甲能量过低" },
         { "Stellar Auto Navigation","星际自动导航" },
         { "Galaxy Auto Navigation","星系自动导航" },
+        { "Hive Auto Navigation","巢穴自动导航" },
+        { "Tinder Auto Navigation","火种自动导航" },
         { "Navigation Mode Ended","导航模式结束" },
     //BetterStarmap
         { "星图功能","Starmap Features" },
@@ -34,7 +36,12 @@ public static class ModTranslate
         }
         else
         {
-            return enusDict[text];
+            string s;
+            if(enusDict.TryGetValue(text, out s))
+            {
+                return s;
+            }
+            return text;
         }
     }
 }

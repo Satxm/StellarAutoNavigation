@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProjectGuid>{43CACCED-1C08-475C-80C9-8A77158A4BD9}</ProjectGuid>
+    <ProjectGuid>{D6FDB636-DFC3-4EE3-9834-EACFE013953C}</ProjectGuid>
     <RootNamespace>SelectBuilder</RootNamespace>
     <AssemblyName>SelectBuilder</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>

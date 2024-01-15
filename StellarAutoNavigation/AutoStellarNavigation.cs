@@ -3,6 +3,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using BepInEx;
 using BepInEx.Configuration;
+using System;
+using rail;
 
 namespace AutoNavigate
 {
@@ -12,47 +14,127 @@ namespace AutoNavigate
         private const int THRUSTER_LEVEL_SAIL = 2;
         private const int THRUSTER_LEVEL_WARP = 3;
 
-        public enum NavigateType
-        {
-            Null,
-            Star,
-            Planet
-        }
-
         public class Target
         {
+            public bool isSet = false;
+            public static double AU = 40000;
             public static double s_FocusParam = 0.01;
             private PlanetData m_PlanetData = null;
             private StarData m_StarData = null;
+            private EnemyDFHiveSystem m_EnemyDFHiveSystem = null;
+            private SpaceSector m_SpaceSector = null;
+            private int enemyId = 0;
 
-            public bool IsVaild() => (TargetStar != null) || (TargetPlanet != null);
+            private EnemyData m_Enemy
+            {
+                get { 
+                    if(m_SpaceSector == null || !TargetSanity)
+                    {
+                        return new EnemyData
+                        {
+                            id = 0
+                        };
+                    }
+                    return m_SpaceSector.enemyPool[enemyId];
+                 }
+            }
 
             public void Reset()
             {
                 m_PlanetData = null;
                 m_StarData = null;
+                m_EnemyDFHiveSystem = null;
+                m_SpaceSector = null;
+                enemyId = 0;
+                isSet = false;
+            }
+
+            private void FinishSetTarget()
+            {
+                isSet = true;
+#if DEBUG
+                ModDebug.Log(String.Format("Target selected! Position: {0}", Position));
+#endif
+            }
+
+            public bool TargetSanity
+            {
+                get
+                {
+                    if (!isSet) return false;
+                    if (m_PlanetData != null) return true;
+                    if (m_StarData != null) return true;
+                    if (m_EnemyDFHiveSystem != null) return true;
+                    if (m_SpaceSector != null && enemyId > 0 && enemyId < m_SpaceSector.enemyPool.Length)
+                    {
+                        if (m_SpaceSector.enemyPool[enemyId].id == 0 || m_SpaceSector.enemyPool[enemyId].dfTinderId == 0)
+                            return false;
+                        return true;
+                    }
+                    return false;
+                }
+            }
+
+            public void SetTarget(SpaceSector sector, int enemyId)
+            {
+                Reset();
+                m_SpaceSector = sector;
+                this.enemyId = enemyId;
+                FinishSetTarget();
             }
 
             public void SetTarget(StarData star)
             {
                 Reset();
                 m_StarData = star;
+                FinishSetTarget();
+            }
+
+            public void SetTarget(EnemyDFHiveSystem hive)
+            {
+                Reset();
+                m_EnemyDFHiveSystem = hive;
+                FinishSetTarget();
             }
 
             public void SetTarget(PlanetData planet)
             {
                 Reset();
                 m_PlanetData = planet;
+                FinishSetTarget();
+            }
+
+            public string GetText()
+            {
+                if (m_PlanetData != null)
+                {
+                    return "Stellar";
+                }
+                else if (m_StarData != null)
+                {
+                    return "Galaxy";
+                }
+                else if (m_EnemyDFHiveSystem != null)
+                {
+                    return "Hive";
+                }
+                else if (isTinderValid)
+                {
+                    return "Tinder";
+                }
+                else
+                {
+                    ModDebug.Error("Get Text while no target!!!");
+                    return "";
+                }
             }
 
             public PlanetData TargetPlanet => m_PlanetData;
 
             public StarData TargetStar => m_StarData;
 
-            public static bool IsFocusing(VectorLF3 lineL, VectorLF3 lineR)
-            {
-                return IsFocusingNormalized(lineL.normalized, lineR.normalized);
-            }
+            public EnemyDFHiveSystem TargetHive => m_EnemyDFHiveSystem;
+
 
             public static bool IsFocusingNormalized(VectorLF3 dirL, VectorLF3 dirR)
             {
@@ -71,6 +153,15 @@ namespace AutoNavigate
                     {
                         return TargetStar.uPosition;
                     }
+                    else if (m_EnemyDFHiveSystem != null)
+                    {
+                        int index = m_EnemyDFHiveSystem.hiveAstroId;
+                        return m_EnemyDFHiveSystem.sector.astros[index - 1000000].uPos;
+                    }
+                    else if (isTinderValid && m_Enemy.positionIsValid)
+                    {
+                        return m_Enemy.pos;
+                    }
                     else
                     {
                         ModDebug.Error("Get Target Position while no target!!!");
@@ -79,55 +170,85 @@ namespace AutoNavigate
                 }
             }
 
+            public StarData TargetStarSystem
+            {
+                get
+                {
+                    if (TargetPlanet != null)
+                    {
+                        return TargetPlanet.star;
+                    }
+                    else if (TargetStar != null)
+                    {
+                        return TargetStar;
+                    }
+                    else if (m_EnemyDFHiveSystem != null)
+                    {
+                        return TargetHive.starData;
+                    }
+                    else
+                    {
+                        if (!isTinderValid)
+                            ModDebug.Error("Get Star Data while no target!!!");
+                        return null;
+                    }
+                }
+            }
+
             public double GetDistance(Player __instance)
             {
-                double dist = float.MaxValue;
-
-                if (TargetPlanet != null)
-                {
-                    dist = (TargetPlanet.uPosition - __instance.uPosition).magnitude;
-                }
-                else if (TargetStar != null)
-                {
-                    dist = (TargetStar.uPosition - __instance.uPosition).magnitude;
-                }
-                else
-                {
-                    ModDebug.Error("GetDistance while no target!!!");
-                }
-
-                return dist;
+                return (Position - __instance.uPosition).magnitude;
             }
 
             public VectorLF3 GetDirection(Player __instance)
             {
-                VectorLF3 dir = VectorLF3.zero;
-
-                if (TargetPlanet != null)
-                {
-                    dir = (TargetPlanet.uPosition - __instance.uPosition).normalized;
-                }
-                else if (TargetStar != null)
-                {
-                    dir = (TargetStar.uPosition - __instance.uPosition).normalized;
-                }
-                else
-                {
-                    ModDebug.Error("GetDirection while no target!!!");
-                }
-
-                return dir;
+                return (Position - __instance.uPosition).normalized;
             }
 
-            public bool IsLocalStarPlanet
+            public bool isTinderValid
             {
                 get
                 {
-                    if (GameMain.localStar != null && TargetPlanet != null && TargetPlanet.star == GameMain.localStar)
-                        return true;
-                    else
-                        return false;
+                    return m_Enemy.id > 0 && m_Enemy.dfTinderId > 0;
                 }
+            }
+            public double Radius
+            {
+                get
+                {
+                    if(m_PlanetData != null)
+                    {
+                        return m_PlanetData.realRadius;
+                    }
+                    else if(m_StarData != null)
+                    {
+                        return m_StarData.physicsRadius;
+                    }
+                    else if(m_EnemyDFHiveSystem != null)
+                    {
+                        return 0.5 * AU;
+                    }
+                    else if (isTinderValid)
+                    {
+                        return 0;
+                    }
+                    else 
+                    {
+                        ModDebug.Error("Get Radius while no target!!!");
+                        return 0;
+                    }
+                }
+            }
+
+
+            /// <summary>
+            /// If the distance between player and the target is less than lambda * (radius + eps), return true
+            /// eps = 0.01 AU
+            /// </summary>
+            public bool IsCloseToTarget(Player player)
+            {
+                float lambda = player.warping && m_EnemyDFHiveSystem != null? 3 : 1;
+                return GetDistance(player) <= (Radius + 0.01 * AU) * lambda;
             }
         }
 
@@ -145,23 +266,6 @@ namespace AutoNavigate
             public ConfigEntry<bool> enableLocalWrap;
             public ConfigEntry<double> localWrapMinDistance;
         }
-
-        public NavigateType CurNavigateType
-        {
-            get
-            {
-                if (IsCurNavStar)
-                    return NavigateType.Star;
-                else if (IsCurNavPlanet)
-                    return NavigateType.Planet;
-                else
-                    return NavigateType.Null;
-            }
-        }
-
-        public bool IsCurNavPlanet => target.TargetPlanet != null;
-
-        public bool IsCurNavStar => target.TargetStar != null;
 
         public Target target;
         public Text modeText;
@@ -228,41 +332,39 @@ namespace AutoNavigate
             target.Reset();
         }
 
-        public bool Navigate()
+
+        /// <summary>
+        /// Start/stop navigation according to the current state.
+        /// </summary>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        public void ToggleNavigate(Player player)
         {
-            if (enable == true)
-                return enable;
-
-            if (CurNavigateType == NavigateType.Null)
+            // In navigation or wrong target or close to the target, stop navigation
+            if (enable || !target.isSet || DetermineArrive(player))
             {
+#if DEBUG
+                ModDebug.Log(string.Format("isEnable: {0}", enable));
+                ModDebug.Log(string.Format("isSet: {0}", target.isSet));
+#endif
                 Arrive();
-                enable = false;
+                return;
             }
-            else if (DetermineArrive())
-            {
-                Arrive();
-                enable = false;
-            }
-            else
-            {
-                enable = true;
-            }
-
-            return enable;
+            // Otherwise start navigation
+#if DEBUG
+            ModDebug.Log("Start Navigation");
+#endif
+            enable = true;
         }
 
-        public bool ToggleNavigate()
+        public string GetText()
         {
-            if (enable == false)
-                return Navigate();
-            else
-                return Arrive();
+            return target.GetText();
         }
 
         public void Reset()
         {
-            //target.Reset();
-
+            target.Reset();
             isHistoryNav = false;
             player = null;
             enable = false;
@@ -296,6 +398,9 @@ namespace AutoNavigate
             }
         }
 
+        /// <summary>
+        /// Stop navigation if user try to control ikaros.
+        /// </summary>
         public void HandlePlayerInput()
         {
             if (!enable)
@@ -310,7 +415,7 @@ namespace AutoNavigate
             }
         }
 
-        public bool Arrive(string extraTip = null)
+        public void Arrive(string extraTip = null)
         {
             string tip = "Navigation Mode Ended".LocalText();
 
@@ -325,55 +430,45 @@ namespace AutoNavigate
                 modeText.text = string.Empty;
             }
 
-            return true;
+            return;
         }
 
-        public bool DetermineArrive()
+        /// <summary>
+        /// Check if the player arrives the destination 
+        /// </summary>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        public bool DetermineArrive(Player player)
         {
-            if (IsCurNavPlanet &&
-                GameMain.localPlanet != null &&
-                GameMain.localPlanet.id == target.TargetPlanet.id)
+
+            if (target.TargetPlanet != null)
             {
-                return true;
+                return GameMain.localPlanet != null && GameMain.localPlanet.id == target.TargetPlanet.id;
             }
-            else if (IsCurNavStar &&
-                GameMain.localStar != null &&
-                GameMain.localStar.id == target.TargetStar.id)
+            else if (target.TargetStar != null)
             {
-                return true;
+                return GameMain.localStar != null && GameMain.localStar.id == target.TargetStar.id && IsCloseToNearStar(player);
             }
             else
             {
-                return false;
+                return target.IsCloseToTarget(player);
             }
         }
 
         public bool AdvisePointIfOcclusion(PlayerMove_Sail __instance, ref VectorLF3 advisePoint, double radiusOffest)
         {
-            bool navPlanet = false;
-            bool navStar = false;
-
             StarData localStar = GameMain.localStar;
-            VectorLF3 srcPoint = __instance.player.uPosition;
-            VectorLF3 dstPoint = VectorLF3.zero;
-
-            if (IsCurNavStar)
+            if (localStar == null)
             {
-                navStar = true;
-                dstPoint = target.TargetStar.uPosition;
-            }
-            else if (IsCurNavPlanet)
-            {
-                navPlanet = true;
-                dstPoint = target.TargetPlanet.uPosition;
-            }
-            else
-            {
-                ModDebug.Error("AdvisePointIfOcclusion When No Navigate!!!");
                 return false;
             }
 
+            VectorLF3 srcPoint = __instance.player.uPosition;
+            VectorLF3 dstPoint = target.Position;
+
             bool hit = false;
+
+            // A vector point to the hit location.
             Math.Line3D hitPlaneVertical = new Math.Line3D();
             double uncoverRadius = 0;
 
@@ -381,76 +476,72 @@ namespace AutoNavigate
             Math.Plane3D plane = new Math.Plane3D();
             plane.normal = line.dir;
 
-            if (localStar != null)
+            // For every planet/star in the local system, the following codes select the largest astroid (with largest minHitRange)
+            // and try to avoid occlusion by sailing to the advise point of this astroid.
+            // Though maybe problematic when multiple occlusions happen, it works fine in practice.
+
+            //Planet occlusion
+            for (int index = 0; index < localStar.planetCount; ++index)
             {
-                //Planet occlusion
-                for (int index = 0; index < localStar.planetCount; ++index)
+                PlanetData planet = localStar.planets[index];
+                plane.point = planet.uPosition;
+
+                //Target planet
+                if (target.TargetPlanet != null && planet.id == target.TargetPlanet.id)
+                    continue;
+
+                VectorLF3 intersection = plane.GetIntersection(line);
+
+                double minHitRange = planet.realRadius + radiusOffest;
+
+                if (intersection.Distance(planet.uPosition) < minHitRange)
                 {
-                    PlanetData planet = localStar.planets[index];
-                    plane.ponit = planet.uPosition;
+                    // This condition will always be true?
+                    // intersection.Distance(srcPoint) + intersection.Distance(dstPoint) <= (dstPoint.Distance(srcPoint) + 0.1)
+                    hit = true;
 
-                    if (plane.IsParallel(line) == false)
+                    //Maximum radius plane
+                    if (minHitRange > uncoverRadius)
                     {
-                        //Target planet
-                        if (navPlanet && planet.id == target.TargetPlanet.id)
-                            continue;
+                        uncoverRadius = minHitRange;
+                        hitPlaneVertical.src = planet.uPosition;
 
-                        VectorLF3 intersection = plane.GetIntersection(line);
-
-                        double minHitRange = planet.realRadius + radiusOffest;
-
-                        if (intersection.Distance(planet.uPosition) < minHitRange &&
-                            intersection.Distance(srcPoint) + intersection.Distance(dstPoint) <= (dstPoint.Distance(srcPoint) + 0.1))
-                        {
-                            hit = true;
-
-                            //Maximum radius plane
-                            if (minHitRange > uncoverRadius)
-                            {
-                                uncoverRadius = minHitRange;
-                                hitPlaneVertical.src = planet.uPosition;
-
-                                if (planet.uPosition != intersection)
-                                    hitPlaneVertical.dst = intersection;
-                                //Rare case
-                                else
-                                    hitPlaneVertical.dst = plane.GetAnyPoint();
-                            }
-                        }
+                        if (planet.uPosition != intersection)
+                            hitPlaneVertical.dst = intersection;
+                        //Rare case
+                        else
+                            hitPlaneVertical.dst = plane.GetAnyPoint();
                     }
                 }
+            }
 
-                ///Star occlusion
-                StarData star = localStar;
-                plane.ponit = star.uPosition;
+            // Hive Occlusion
+            // Hive will attack the player if the player is close enough to the HiveSystem.
+            // To avoid this case, we treat the hive as a 0.5AU sphere.
+            // TODO: may be too big, not implemented
 
-                //Target star
-                if (navStar && star.id == target.TargetStar.id)
-                { }
-                else
+
+            // Star Occlusion
+            plane.point = localStar.uPosition;
+            if (target.TargetStar == null || localStar.id == target.TargetStar.id)
+            {
+                VectorLF3 intersection = plane.GetIntersection(line);
+
+                double minHitRange = localStar.physicsRadius + radiusOffest;
+                if (intersection.Distance(localStar.uPosition) < minHitRange)
                 {
-                    if (plane.IsParallel(line) == false)
+                    hit = true;
+                    //Maximum radius plane
+                    if (minHitRange > uncoverRadius)
                     {
-                        VectorLF3 intersection = plane.GetIntersection(line);
+                        uncoverRadius = minHitRange;
+                        hitPlaneVertical.src = localStar.uPosition;
 
-                        double minHitRange = star.physicsRadius + radiusOffest;
-                        if (intersection.Distance(star.uPosition) < minHitRange)
-                        {
-                            hit = true;
-
-                            //Maximum radius plane
-                            if (minHitRange > uncoverRadius)
-                            {
-                                uncoverRadius = minHitRange;
-                                hitPlaneVertical.src = star.uPosition;
-
-                                if (star.uPosition != intersection)
-                                    hitPlaneVertical.dst = intersection;
-                                //Rare case
-                                else
-                                    hitPlaneVertical.dst = plane.GetAnyPoint();
-                            }
-                        }
+                        if (localStar.uPosition != intersection)
+                            hitPlaneVertical.dst = intersection;
+                        //Rare case
+                        else
+                            hitPlaneVertical.dst = plane.GetAnyPoint();
                     }
                 }
             }
@@ -463,7 +554,7 @@ namespace AutoNavigate
                 VectorLF3 uncoverOrbitPoint = hitPlaneVertical.src + (hitPlaneVertical.dir * (uncoverRadius + 10));
                 Math.Line3D uncoverLine = new Math.Line3D(dstPoint, uncoverOrbitPoint);
                 plane.normal = uncoverLine.dir;
-                plane.ponit = srcPoint;
+                plane.point = srcPoint;
 
                 advisePoint = plane.GetIntersection(uncoverLine);
             }
@@ -472,69 +563,69 @@ namespace AutoNavigate
         }
 
         /// <summary>
-        /// 获取当前星系最近行星距离
+        /// Get the distance to the nearest planet in the local star system, if there are no planet, return Double.MaxValue
         /// </summary>
-        private double NearestPlanetDistance(PlayerMove_Sail __instance)
+        private double NearestPlanetDistance(Player player)
         {
+            // ...
             StarData localStar = GameMain.localStar;
-            double distance = (localStar.planets[0].uPosition - __instance.player.uPosition).magnitude;
-
-            //Distance set negative when local star is null
-            if (localStar == null)
-                return -10.0;
-
-            for (int index = 0; index < localStar.planetCount; ++index)
+            double distance = Double.MaxValue;
+            if (localStar != null)
             {
-                PlanetData planet = localStar.planets[index];
-                double magnitude = (planet.uPosition - __instance.player.uPosition).magnitude;
+                for (int index = 0; index < localStar.planetCount; ++index)
+                {
+                    PlanetData planet = localStar.planets[index];
+                    double magnitude = (planet.uPosition - player.uPosition).magnitude;
 
-                if (magnitude < distance)
-                    distance = magnitude;
+                    if (magnitude < distance)
+                        distance = magnitude;
+                }
             }
-
             return distance;
         }
 
-        public bool IsCloseToNearStar(PlayerMove_Sail __instance)
+        /// <summary>
+        ///  Check if the ikaros is close to any planet/star in the star system.
+        /// </summary>
+        public bool IsCloseToNearStar(Player player)
         {
             if (GameMain.localStar == null)
                 return false;
 
-            bool closeFlag = false;
-            double distance = NearestPlanetDistance(__instance);
-
-            if (distance > 0)
-            {
-                //星系行星较少的情况
-                if (GameMain.localStar.planetCount <= sparseStarPlanetCount &&
-                    distance < sparseStarPlanetNearestDistance)
-                    return true;
-
-                if (distance < planetNearestDistance)
-                    closeFlag = true;
-            }
-            //靠近本地星系恒星
-            else if ((GameMain.localStar.uPosition - __instance.player.uPosition).magnitude < planetNearestDistance)
-                closeFlag = true;
-
-            return closeFlag;
+            double starDistance = (GameMain.localStar.uPosition - player.uPosition).magnitude;
+            return System.Math.Min(NearestPlanetDistance(player), starDistance) < planetNearestDistance;
         }
 
-        public void StarNavigation(PlayerMove_Sail __instance)
+        /// <summary>
+        /// Check if the distance can use wrap
+        /// </summary>
+        /// <param name="__instance"></param>
+        /// <returns></returns>
+        private bool CanWrapNavigate(PlayerMove_Sail __instance)
         {
-            ModDebug.Assert(IsCurNavStar);
+            return target.GetDistance(__instance.player) > System.Math.Max(localWrapMinDistance, target.Radius + longNavUncoverRange);
+        }
+
+        public void Navigation(PlayerMove_Sail __instance)
+        {
             player = __instance.player;
 
-            if (!IsCurNavStar)
+            // Check if the target exists
+            if(!target.TargetSanity)
             {
-                Arrive();
-#if DEBUG
-                ModDebug.Error("StarNavigation - Error target");
-#endif
+                Arrive("Target Destroyed");
                 return;
             }
 
-            // 飞离星球
+            // Check if the player is close to the destination
+            if (DetermineArrive(player))
+            {
+                Arrive();
+                Warp.TryLeaveWarp(__instance);
+                return;
+            }
+
+            // Try to leave the planet
             PlanetData localPlanet = GameMain.localPlanet;
             if (localPlanet != null)
             {
@@ -543,128 +634,57 @@ namespace AutoNavigate
 #endif
                 VectorLF3 dir = (__instance.player.uPosition - localPlanet.uPosition).normalized;
                 Sail.SetDir(__instance, dir);
+                Sail.TrySpeedUp(this, __instance);
                 return;
             }
 
-            // 判断是否抵达目的地
-            if (DetermineArrive() && IsCloseToNearStar(__instance))
-            {
-#if DEBUG
-                ModDebug.Log("Star Navigation Arrive");
-#endif
-                Arrive();
-                Warp.TryLeaveWarp(__instance);
-                return;
-            }
-
-            LongDistanceNavigate(__instance);
-        }
-
-        private bool NeedLocalLongDistanceNavigate(PlayerMove_Sail __instance)
-        {
-            double distance = (target.TargetPlanet.uPosition - __instance.player.uPosition).magnitude;
-
-            bool localWarpable = (enableLocalWrap &&
-                                  distance > localWrapMinDistance &&
-                                  distance > (target.TargetPlanet.realRadius + longNavUncoverRange));
-
-            return localWarpable || target.IsLocalStarPlanet == false;
-        }
-
-        public void PlanetNavigation(PlayerMove_Sail __instance)
-        {
-            ModDebug.Assert(IsCurNavPlanet);
-            player = __instance.player;
-
-            if (!IsCurNavPlanet)
-            {
-                Arrive();
-#if DEBUG
-                ModDebug.Error("Planet navigation - Error target");
-#endif
-                return;
-            }
-
-            if (NeedLocalLongDistanceNavigate(__instance))
-            {
-                PlanetData localPlanet = GameMain.localPlanet;
-                if (localPlanet != null &&
-                    target.TargetPlanet != null &&
-                    localPlanet.id != target.TargetPlanet.id)
-                {
-#if DEBUG
-                    ModDebug.Log("Leave Local Planet");
-#endif
-                    VectorLF3 dir = (__instance.player.uPosition - localPlanet.uPosition).normalized;
-                    Sail.SetDir(__instance, dir);
-                }
-                else
-                {
-#if DEBUG
-                    ModDebug.Log("Local Long Distance Navigation");
-#endif
-                    LongDistanceNavigate(__instance);
-                }
-
-                return;
-            }
-
-#if DEBUG
-            ModDebug.Log("Local Short Distance Navigation");
-#endif
-            ShortDistanceNavigate(__instance);
-        }
-
-        private void ShortDistanceNavigate(PlayerMove_Sail __instance)
-        {
-            VectorLF3 dir = target.GetDirection(__instance.player);
-            Sail.SetDir(__instance, dir);
+            // Check occulusion
+            StarData localStar = GameMain.localStar;
+            bool isLocalNav = localStar != null && target.TargetStarSystem != null && localStar.id == target.TargetStarSystem.id;
+            double radiusOffset = isLocalNav ? shortNavUncoverRange : longNavUncoverRange;
 
             VectorLF3 advisePoint = VectorLF3.zero;
-            if (AdvisePointIfOcclusion(__instance, ref advisePoint, shortNavUncoverRange))
+            if (AdvisePointIfOcclusion(__instance, ref advisePoint, radiusOffset))
             {
-#if DEBUG
-                ModDebug.Log("Planet Navigate ToAdvisePoint:" + advisePoint);
-#endif
-                dir = (advisePoint - __instance.player.uPosition).normalized;
-                Sail.SetDir(__instance, dir);
+                Sail.SetDir(__instance, (advisePoint - __instance.player.uPosition).normalized);
                 Sail.TrySpeedUp(this, __instance);
+                return;
             }
+
+            // Start Navigation.
+            if (isLocalNav)
+                LocalNavigation(__instance);
             else
+                WrapNavigation(__instance);
+        }
+
+        public void LocalNavigation(PlayerMove_Sail __instance)
+        {
+            if (enableLocalWrap && CanWrapNavigate(__instance))
+                WrapNavigation(__instance);
+            else
+                SailNavigation(__instance);
+        }
+
+        public void SailNavigation(PlayerMove_Sail __instance)
+        {
+            VectorLF3 dir = target.GetDirection(__instance.player);
+            Sail.SetDir(__instance, dir);
+            if (Target.IsFocusingNormalized(dir, __instance.player.uVelocity.normalized))
             {
-                if (Target.IsFocusingNormalized(dir, __instance.player.uVelocity.normalized))
-                {
 #if DEBUG
-                    ModDebug.Log("Short Navigate - Speed Up");
+                ModDebug.Log("Sail Navigate - Speed Up");
 #endif
-                    Sail.TrySpeedUp(this, __instance);
-                }
-                else
-                {
-#if DEBUG
-                    ModDebug.Log("Short Navigate - No Speed Up");
-#endif
-                }
+                Sail.TrySpeedUp(this, __instance);
             }
         }
 
-        private void LongDistanceNavigate(PlayerMove_Sail __instance)
+        public void WrapNavigation(PlayerMove_Sail __instance)
         {
             VectorLF3 dir = target.GetDirection(__instance.player);
             Sail.SetDir(__instance, dir);
 
-            VectorLF3 advisePoint = VectorLF3.zero;
-            if (AdvisePointIfOcclusion(__instance, ref advisePoint, longNavUncoverRange))
-            {
-#if DEBUG
-                ModDebug.Log("LongDistanceNavigate - ToAdvisePoint:" + advisePoint);
-#endif
-
-                dir = (advisePoint - __instance.player.uPosition).normalized;
-                Sail.SetDir(__instance, dir);
-                Sail.TrySpeedUp(this, __instance);
-            }
-            else if (Target.IsFocusingNormalized(dir, __instance.player.uVelocity.normalized) && !__instance.player.warping)
+            if (Target.IsFocusingNormalized(dir, __instance.player.uVelocity.normalized) && !__instance.player.warping)
             {
                 if (__instance.player.mecha.coreEnergy >= wrapEnergyLimit && Warp.TryWrap(this, __instance))
                 {
@@ -673,43 +693,27 @@ namespace AutoNavigate
 #endif
                     return;
                 }
-                else if (IsCurNavPlanet && target.IsLocalStarPlanet == true)
+                else if (CanSpeedUp())
                 {
 #if DEBUG
-                    ModDebug.Log("Local Planet Navigate No Wrap Chance SpeedUp");
+                    ModDebug.Log("Try SpeedUp");
 #endif
                     Sail.TrySpeedUp(this, __instance);
-                    return;
-                }
-                else if (LongDistanceNavigateNeedSpeedUp())
-                {
-#if DEBUG
-                    ModDebug.Log("Long Distance Navigate Need SpeedUp");
-#endif
-                    Sail.TrySpeedUp(this, __instance);
-                }
-                else
-                {
-#if DEBUG
-                    ModDebug.Log("Long Distance Navigate No SpeedUp And Warp");
-#endif
                 }
             }
 
-            bool LongDistanceNavigateNeedSpeedUp()
+            bool CanSpeedUp()
             {
                 if (__instance.player.mecha.coreEnergy >= speedUpEnergyLimit)
                 {
                     if (__instance.player.mecha.thrusterLevel < THRUSTER_LEVEL_WARP)
                         return true;
-                    //else if (Warp.GetWarperCount(__instance) <= 0)
                     else if (!Warp.HasWarper(__instance))
                         return true;
-                    return true;
+                    else if (!CanWrapNavigate(__instance))
+                        return true;
                 }
-                //Prepare warp
-                if (__instance.player.mecha.coreEnergy < wrapEnergyLimit)
-                    return false;
+                //Prepare warp or cannot speed up
                 return false;
             }
         }
@@ -736,16 +740,6 @@ namespace AutoNavigate
 
             public static bool HasWarpChance(AutoStellarNavigation self, PlayerMove_Sail __instance)
             {
-                bool LocalPlanetWarp()
-                {
-                    if (GameMain.localPlanet != null && self.target.TargetPlanet.id == GameMain.localPlanet.id)
-                        return false;
-                    else if ((__instance.player.uPosition - self.target.TargetPlanet.uPosition).magnitude < (self.localWrapMinDistance))
-                        return false;
-                    else
-                        return true;
-                }
-
                 if (__instance.player.mecha.thrusterLevel < THRUSTER_LEVEL_WARP)
                     return false;
 
@@ -753,11 +747,11 @@ namespace AutoNavigate
                     __instance.mecha.warpStartPowerPerSpeed * (double)__instance.mecha.maxWarpSpeed)
                     return false;
 
-                //if (GetWarperCount(__instance) <= 0)
                 if (!HasWarper(__instance))
                     return false;
-
-                if (self.IsCurNavStar || LocalPlanetWarp())
+                
+                
+                if (self.CanWrapNavigate(__instance))
                     return true;
 
                 return false;
@@ -801,7 +795,6 @@ namespace AutoNavigate
         {
             public static void SetDir(PlayerMove_Sail __instance, VectorLF3 dir) =>
                 __instance.controller.fwdRayUDir = dir;
-                //__instance.sailPoser.targetURot = Quaternion.LookRotation(dir);
 
             public static void TrySpeedUp(AutoStellarNavigation __this, PlayerMove_Sail __instance)
             {
@@ -837,7 +830,7 @@ namespace AutoNavigate
             }
         }
 
-        public static class Walk
+        public static class WalkOrDrift
         {
             public static bool TrySwitchToFly(PlayerMove_Walk __instance)
             {
@@ -845,7 +838,6 @@ namespace AutoNavigate
                 ModDebug.Log("Try Switch To Fly");
 #endif
 
-                //if (__instance.mecha.thrusterLevel < 1)
                 if (__instance.mecha.thrusterLevel < THRUSTER_LEVEL_FLY)
                     return false;
 
@@ -853,6 +845,20 @@ namespace AutoNavigate
                 __instance.jumpedTime = 0.0f;
 
                 __instance.flyUpChance = 0.0f;
+                __instance.SwitchToFly();
+
+                return true;
+            }
+
+            public static bool TrySwitchToFly(PlayerMove_Drift __instance)
+            {
+#if DEBUG
+                ModDebug.Log("Try Switch To Fly");
+#endif
+
+                if (__instance.mecha.thrusterLevel < THRUSTER_LEVEL_FLY)
+                    return false;
+
                 __instance.SwitchToFly();
 
                 return true;

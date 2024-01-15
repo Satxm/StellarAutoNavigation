@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProjectGuid>{43CACCED-1C08-475C-80C9-8A77158A4BD9}</ProjectGuid>
+    <ProjectGuid>{38CBF57F-94F4-42D1-8123-F6280D31D015}</ProjectGuid>
     <RootNamespace>BetterStarmap</RootNamespace>
     <AssemblyName>BetterStarmap</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>
