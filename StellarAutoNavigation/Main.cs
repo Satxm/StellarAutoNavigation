@@ -9,14 +9,14 @@ using HarmonyLib;
 
 namespace AutoNavigate
 {
-    [BepInPlugin(__GUID__, __NAME__, "1.09")]
+    [BepInPlugin(__GUID__, __NAME__, "1.0.9")]
     public class AutoNavigate : BaseUnityPlugin
     {
         public const string __NAME__ = "StellarAutoNavigation";
         public const string __GUID__ = "0x.plugins.dsp." + __NAME__;
 
         public static AutoNavigate __this;
-        public static AutoStellarNavigation s_NavigateInstance;
+        public static StellarAutoNavigation s_NavigateInstance;
         public static bool s_IsHistoryNavigated = false;
         public static ConfigEntry<double> s_NavigateMinEnergy;
         private static double lastDist;
@@ -28,7 +28,7 @@ namespace AutoNavigate
             ModDebug.SetLogger(Logger);
 
             __this = this;
-            s_NavigateInstance = new AutoStellarNavigation(GetNavigationConfig());
+            s_NavigateInstance = new StellarAutoNavigation(GetNavigationConfig());
 
             new Harmony(__GUID__).PatchAll();
         }
@@ -46,36 +46,36 @@ namespace AutoNavigate
             }
         }
 
-        private AutoStellarNavigation.NavigationConfig GetNavigationConfig()
+        private StellarAutoNavigation.NavigationConfig GetNavigationConfig()
         {
-            var config = new AutoStellarNavigation.NavigationConfig();
+            var config = new StellarAutoNavigation.NavigationConfig();
 
             s_NavigateMinEnergy = Config.Bind<double>(
-                "AutoStellarNavigation",
+                "StellarAutoNavigation",
                 "minAutoNavEnergy",
                 50000000.0,
                 "开启自动导航最低能量(最低50m)"
                 );
             config.speedUpEnergylimit = Config.Bind<double>(
-                "AutoStellarNavigation",
+                "StellarAutoNavigation",
                 "SpeedUpEnergylimit",
                 50000000.0,
                 "开启加速最低能量(默认50m)"
                 );
             config.wrapEnergylimit = Config.Bind<double>(
-                "AutoStellarNavigation",
+                "StellarAutoNavigation",
                 "WrapEnergylimit",
                 800000000,
                 "开启曲率最低能量(默认800m)"
                 );
             config.enableLocalWrap = Config.Bind<bool>(
-                "AutoStellarNavigation",
+                "StellarAutoNavigation",
                 "EnableLocalWrap",
                 true,
                 "是否开启本地行星曲率飞行"
                 );
             config.localWrapMinDistance = Config.Bind<double>(
-                "AutoStellarNavigation",
+                "StellarAutoNavigation",
                 "LocalWrapMinDistance",
                 100000.0,
                 "本地行星曲率飞行最短距离"
@@ -201,7 +201,7 @@ namespace AutoNavigate
                     {
                         ModDebug.Trace($"Dropping out of warp, passed target - ld:{lastDist} cd:{cdist}");
                         //We passed the target, drop out of warp, retarget
-                        AutoStellarNavigation.Warp.TryLeaveWarp(__instance, false);
+                        StellarAutoNavigation.Warp.TryLeaveWarp(__instance, false);
                     }
                     lastDist = cdist;
                 }
@@ -273,7 +273,7 @@ namespace AutoNavigate
                     if (__instance.currentAltitude > sailMinAltitude)
                     {
                         //ModDebug.Trace("Switch to sail");
-                        AutoStellarNavigation.Fly.TrySwtichToSail(__instance);
+                        StellarAutoNavigation.Fly.TrySwtichToSail(__instance);
                     }
                 }
                 //ModDebug.Trace("End FlyToSail.PreFix");
@@ -317,7 +317,7 @@ namespace AutoNavigate
                 else
                 {
                     ModDebug.Trace("Switching to fly mode");
-                    AutoStellarNavigation.WalkOrDrift.TrySwitchToFly(__instance);
+                    StellarAutoNavigation.WalkOrDrift.TrySwitchToFly(__instance);
                     //切换至Fly Mode 中对 UpdateJump 方法进行拦截
                     __result = true;
                 }
@@ -363,7 +363,7 @@ namespace AutoNavigate
                 else
                 {
                     ModDebug.Trace("Switching to fly mode");
-                    AutoStellarNavigation.WalkOrDrift.TrySwitchToFly(__instance);
+                    StellarAutoNavigation.WalkOrDrift.TrySwitchToFly(__instance);
                 }
 
                 ModDebug.Trace("End DriftToFly.PostFix");

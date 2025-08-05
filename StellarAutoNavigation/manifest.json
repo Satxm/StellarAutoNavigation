@@ -1,8 +1,8 @@
 {
-    "name": "AutoStellarNavigation",
+    "name": "StellarAutoNavigation",
     "version_number": "1.0.9",
-    "website_url": "https://github.com/jimmieclark3/DSPMods",
-    "description": "Auto Stellar Navigation mode",
+    "website_url": "https://github.com/lostkevin/DspMods",
+    "description": "Stellar Auto Navigation mode",
     "dependencies": [
         "xiaoye97-BepInEx-5.4.11"
     ]

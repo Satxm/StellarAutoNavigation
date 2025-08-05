@@ -2,8 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ProjectGuid>{43CACCED-1C08-475C-80C9-8A77158A4BD9}</ProjectGuid>
-    <RootNamespace>AutoStellerNavigate</RootNamespace>
-    <AssemblyName>AutoStellerNavigate</AssemblyName>
+    <RootNamespace>StellarAutoNavigation</RootNamespace>
+    <AssemblyName>StellarAutoNavigation</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
@@ -40,17 +40,4 @@
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj" />
-  </ItemGroup>
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-  </Target>
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /y /d  &quot;$(TargetDir)\*.dll&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Dyson Sphere Program\BepInEx\plugins\AutoNav&quot;&#xD;&#xA;start steam://rungameid/1366540" />
-  </Target>
-  <!--
-  <PropertyGroup>
-    <PostBuildEvent>COPY $(TargetPath) "G:\SteamLibrary\steamapps\common\Dyson Sphere Program\BepInEx\plugins"</PostBuildEvent>
-  </PropertyGroup>
-  -->
 </Project>
