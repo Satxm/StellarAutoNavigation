@@ -23,6 +23,7 @@ namespace AutoNavigate
             private StarData m_StarData = null;
             private EnemyDFHiveSystem m_EnemyDFHiveSystem = null;
             private SpaceSector m_SpaceSector = null;
+            private CosmicMessageData m_CosmicMessageData = null;
             private int enemyId = 0;
 
             private EnemyData m_Enemy
@@ -36,14 +37,15 @@ namespace AutoNavigate
                         };
                     }
                     return m_SpaceSector.enemyPool[enemyId];
-                 }
+                }
             }
 
             public void Reset()
             {
-                m_PlanetData = null;
                 m_StarData = null;
+                m_PlanetData = null;
                 m_EnemyDFHiveSystem = null;
+                m_CosmicMessageData = null;
                 m_SpaceSector = null;
                 enemyId = 0;
                 isSet = false;
@@ -62,9 +64,10 @@ namespace AutoNavigate
                 get
                 {
                     if (!isSet) return false;
-                    if (m_PlanetData != null) return true;
                     if (m_StarData != null) return true;
+                    if (m_PlanetData != null) return true;
                     if (m_EnemyDFHiveSystem != null) return true;
+                    if (m_CosmicMessageData != null) return true;
                     if (m_SpaceSector != null && enemyId > 0 && enemyId < m_SpaceSector.enemyPool.Length)
                     {
                         if (m_SpaceSector.enemyPool[enemyId].id == 0 || m_SpaceSector.enemyPool[enemyId].dfTinderId == 0)
@@ -104,6 +107,13 @@ namespace AutoNavigate
                 FinishSetTarget();
             }
 
+            public void SetTarget(CosmicMessageData message)
+            {
+                Reset();
+                m_CosmicMessageData = message;
+                FinishSetTarget();
+            }
+
             public string GetText()
             {
                 if (m_PlanetData != null)
@@ -116,11 +126,19 @@ namespace AutoNavigate
                 }
                 else if (m_EnemyDFHiveSystem != null)
                 {
-                    return "Hive";
+                    return "Dark Fog Hive";
+                }
+                else if (m_CosmicMessageData != null)
+                {
+                    if (m_CosmicMessageData.protoId > CosmicMessageProto.maxProtoId)
+                    {
+                        return "Dark Fog Communicator";
+                    }
+                    return "Cosmic Message";
                 }
                 else if (isTinderValid)
                 {
-                    return "Tinder";
+                    return "Space Seed";
                 }
                 else
                 {
@@ -135,6 +153,7 @@ namespace AutoNavigate
 
             public EnemyDFHiveSystem TargetHive => m_EnemyDFHiveSystem;
 
+            public CosmicMessageData TargetMessage => m_CosmicMessageData;
 
             public static bool IsFocusingNormalized(VectorLF3 dirL, VectorLF3 dirR)
             {
@@ -145,18 +164,22 @@ namespace AutoNavigate
             {
                 get
                 {
-                    if (TargetPlanet != null)
-                    {
-                        return TargetPlanet.uPosition;
-                    }
-                    else if (TargetStar != null)
+                    if (TargetStar != null)
                     {
                         return TargetStar.uPosition;
+                    }
+                    else if (TargetPlanet != null)
+                    {
+                        return TargetPlanet.uPosition;
                     }
                     else if (m_EnemyDFHiveSystem != null)
                     {
                         int index = m_EnemyDFHiveSystem.hiveAstroId;
                         return m_EnemyDFHiveSystem.sector.astros[index - 1000000].uPos;
+                    }
+                    else if (m_CosmicMessageData != null)
+                    {
+                        return m_CosmicMessageData.uPosition;
                     }
                     else if (isTinderValid && m_Enemy.positionIsValid)
                     {
@@ -174,17 +197,21 @@ namespace AutoNavigate
             {
                 get
                 {
-                    if (TargetPlanet != null)
-                    {
-                        return TargetPlanet.star;
-                    }
-                    else if (TargetStar != null)
+                    if (TargetStar != null)
                     {
                         return TargetStar;
+                    }
+                    else if (TargetPlanet != null)
+                    {
+                        return TargetPlanet.star;
                     }
                     else if (m_EnemyDFHiveSystem != null)
                     {
                         return TargetHive.starData;
+                    }
+                    else if (m_CosmicMessageData != null)
+                    {
+                        return TargetMessage.nearStar;
                     }
                     else
                     {
@@ -216,17 +243,21 @@ namespace AutoNavigate
             {
                 get
                 {
-                    if(m_PlanetData != null)
-                    {
-                        return m_PlanetData.realRadius;
-                    }
-                    else if(m_StarData != null)
+                    if(m_StarData != null)
                     {
                         return m_StarData.physicsRadius;
+                    }
+                    else if (m_PlanetData != null)
+                    {
+                        return m_PlanetData.realRadius;
                     }
                     else if(m_EnemyDFHiveSystem != null)
                     {
                         return 0.5 * AU;
+                    }
+                    else if(m_CosmicMessageData != null)
+                    {
+                        return 0.2 * AU;
                     }
                     else if (isTinderValid)
                     {

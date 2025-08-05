@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using BepInEx;
@@ -7,7 +8,7 @@ using HarmonyLib;
 
 namespace AutoNavigate
 {
-    [BepInPlugin(__GUID__, __NAME__, "1.0.10")]
+    [BepInPlugin(__GUID__, __NAME__, "1.0.11")]
     public class AutoNavigate : BaseUnityPlugin
     {
         public const string __NAME__ = "StellarAutoNavigation";
@@ -375,7 +376,7 @@ namespace AutoNavigate
         private class OnSetIndicatorAstro
         {
             /// <summary>
-            /// 根据 Indicator (导航指示标) 设置导航目标
+            /// 根据 星图导航指示标 设置导航目标
             /// </summary>
             private static void Prefix(UIStarmap __instance)
             {
@@ -404,7 +405,7 @@ namespace AutoNavigate
         private class OnSetTinderIndicatorAstro
         {
             /// <summary>
-            /// 根据 Indicator (导航指示标) 设置导航目标
+            /// 根据 星图导航指示标 设置导航目标
             /// </summary>
             private static void Postfix(UIStarmap __instance)
             {
@@ -418,6 +419,45 @@ namespace AutoNavigate
                     s_NavigateInstance.target.SetTarget(__instance.spaceSector, enemyId);
                     return;
                 }
+            }
+        }
+
+        [HarmonyPatch(typeof(UISpaceGuideEntry), "OnIndicatorButtonClick")]
+        private class OnIndicatorButtonClick
+        {
+            /// <summary>
+            /// 根据 太空导航指示标 设置导航目标
+            /// </summary>
+            private static void Prefix(UISpaceGuideEntry __instance)
+            {
+                if (__instance.guideType == ESpaceGuideType.Planet)
+                {
+                    s_NavigateInstance.target.SetTarget(GameMain.galaxy.PlanetById(__instance.objId));
+                }
+                else if (__instance.guideType == ESpaceGuideType.Star)
+                {
+                    s_NavigateInstance.target.SetTarget(GameMain.galaxy.StarById(__instance.objId));
+                }
+                else if (__instance.guideType == ESpaceGuideType.DFHive)
+                {
+                    s_NavigateInstance.target.SetTarget(GameMain.spaceSector.dfHivesByAstro[__instance.objId - 1000000]);
+                }
+                else if (__instance.guideType == ESpaceGuideType.CosmicMessage || __instance.guideType == ESpaceGuideType.DFCommunicator)
+                {
+                    s_NavigateInstance.target.SetTarget(GameMain.gameScenario.cosmicMessageManager.messages[__instance.objId]);
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(UIControlPanelPlanetEntry), "OnNavigationButtonClick")]
+        private class OnNavigationButtonClick
+        {
+            /// <summary>
+            /// 根据 总控面板导航指示标 设置导航目标
+            /// </summary>
+            private static void Prefix(UIControlPanelPlanetEntry __instance)
+            {
+                    s_NavigateInstance.target.SetTarget(GameMain.galaxy.PlanetById(__instance.planet.astroId));
             }
         }
 
