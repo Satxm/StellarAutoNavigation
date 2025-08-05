@@ -340,13 +340,14 @@ namespace AutoNavigate
         /// <returns></returns>
         public void ToggleNavigate(Player player)
         {
-            // In navigation or wrong target or close to the target, stop navigation
-            if (enable || !target.isSet || DetermineArrive(player))
-            {
 #if DEBUG
                 ModDebug.Log(string.Format("isEnable: {0}", enable));
                 ModDebug.Log(string.Format("isSet: {0}", target.isSet));
+                ModDebug.Log(string.Format("DetermineArrive: {0}", DetermineArrive(player)));
 #endif
+            // In navigation or wrong target or close to the target, stop navigation
+            if (enable || !target.isSet || DetermineArrive(player))
+            {
                 Arrive();
                 return;
             }

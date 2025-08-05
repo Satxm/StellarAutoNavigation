@@ -1,6 +1,4 @@
-﻿#define QUICK_INDICATOR
-
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using BepInEx;
@@ -9,7 +7,7 @@ using HarmonyLib;
 
 namespace AutoNavigate
 {
-    [BepInPlugin(__GUID__, __NAME__, "1.0.9")]
+    [BepInPlugin(__GUID__, __NAME__, "1.0.10")]
     public class AutoNavigate : BaseUnityPlugin
     {
         public const string __NAME__ = "StellarAutoNavigation";
@@ -37,8 +35,8 @@ namespace AutoNavigate
         {
             if (player != null)
             {
-                //导航开关  (K键可能会在将来版本弃用)
-                if (Input.GetKeyDown(KeyCode.Keypad0) || Input.GetKeyDown(KeyCode.K))
+                //导航开关
+                if (Input.GetKeyDown(KeyCode.K))
                 {
                     lastDist = double.MaxValue;
                     s_NavigateInstance.ToggleNavigate(player);
@@ -180,7 +178,7 @@ namespace AutoNavigate
         private class SailMode_AutoNavigate
         {
             private static VectorLF3 oTargetURot;
-            
+
 
             private static void Prefix(PlayerMove_Sail __instance)
             {
@@ -199,7 +197,7 @@ namespace AutoNavigate
 
                     if (lastDist < cdist)
                     {
-                        ModDebug.Trace($"Dropping out of warp, passed target - ld:{lastDist} cd:{cdist}");
+                        // ModDebug.Trace($"Dropping out of warp, passed target - ld:{lastDist} cd:{cdist}");
                         //We passed the target, drop out of warp, retarget
                         StellarAutoNavigation.Warp.TryLeaveWarp(__instance, false);
                     }
@@ -237,46 +235,46 @@ namespace AutoNavigate
             /// </summary>
             private static void Prefix(PlayerMove_Fly __instance)
             {
-                //ModDebug.Trace("Begin FlyToSail.PreFix");
+                // ModDebug.Trace("Begin FlyToSail.PreFix");
                 if (!s_NavigateInstance.enable)
                 {
-                    //ModDebug.Trace("No navigation, exiting");
+                    // ModDebug.Trace("No navigation, exiting");
                     return;
                 }
 
                 if (__instance.player.movementState != EMovementState.Fly)
                 {
-                    //ModDebug.Trace("Movement != fly");
+                    // ModDebug.Trace("Movement != fly");
                     return;
                 }
 
                 if (s_NavigateInstance.DetermineArrive(__instance.player))
                 {
-                    //ModDebug.Log("FlyModeArrive");
+                    // ModDebug.Trace("FlyModeArrive");
                     s_NavigateInstance.Arrive();
                 }
                 else if (__instance.mecha.thrusterLevel < 2)
                 {
-                    //ModDebug.Trace("Thruster level too low");
+                    // ModDebug.Trace("Thruster level too low");
                     s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
                 }
                 else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
                 {
-                    //ModDebug.Trace("Mecha energy too low");
+                    // ModDebug.Trace("Mecha energy too low");
                     s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
                 }
                 else
                 {
-                    //ModDebug.Trace("In else");
+                    // ModDebug.Trace("In else");
                     ++__instance.controller.input1.y;
 
                     if (__instance.currentAltitude > sailMinAltitude)
                     {
-                        //ModDebug.Trace("Switch to sail");
+                        // ModDebug.Trace("Switch to sail");
                         StellarAutoNavigation.Fly.TrySwtichToSail(__instance);
                     }
                 }
-                //ModDebug.Trace("End FlyToSail.PreFix");
+                // ModDebug.Trace("End FlyToSail.PreFix");
             }
         }
 
@@ -291,38 +289,38 @@ namespace AutoNavigate
             /// </summary>
             private static void Postfix(PlayerMove_Walk __instance, ref bool __result)
             {
-                ModDebug.Trace("Begin WalkToFLy.PostFix");
+                // ModDebug.Trace("Begin WalkToFLy.PostFix");
 
                 if (!s_NavigateInstance.enable)
                 {
-                    ModDebug.Trace("No navigation, exiting");
+                    // ModDebug.Trace("No navigation, exiting");
                     return;
                 }
 
                 if (s_NavigateInstance.DetermineArrive(__instance.player))
                 {
-                    ModDebug.Log("WalkModeArrive");
+                    // ModDebug.Log("WalkModeArrive");
                     s_NavigateInstance.Arrive();
                 }
                 else if (__instance.mecha.thrusterLevel < 1)
                 {
-                    ModDebug.Trace("Thruster level too low");
+                    // ModDebug.Trace("Thruster level too low");
                     s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
                 }
                 else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
                 {
-                    ModDebug.Trace("Mecha energy too low");
+                    // ModDebug.Trace("Mecha energy too low");
                     s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
                 }
                 else
                 {
-                    ModDebug.Trace("Switching to fly mode");
+                    // ModDebug.Trace("Switching to fly mode");
                     StellarAutoNavigation.WalkOrDrift.TrySwitchToFly(__instance);
                     //切换至Fly Mode 中对 UpdateJump 方法进行拦截
                     __result = true;
                 }
 
-                ModDebug.Trace("End WalkToFLy.PostFix");
+                // ModDebug.Trace("End WalkToFLy.PostFix");
             }
         }
 
@@ -337,36 +335,36 @@ namespace AutoNavigate
             /// </summary>
             private static void Postfix(PlayerMove_Drift __instance)
             {
-                ModDebug.Trace("Begin DriftToFly.PostFix");
+                // ModDebug.Trace("Begin DriftToFly.PostFix");
 
                 if (!s_NavigateInstance.enable)
                 {
-                    ModDebug.Trace("No navigation, exiting");
+                    // ModDebug.Trace("No navigation, exiting");
                     return;
                 }
 
                 if (s_NavigateInstance.DetermineArrive(__instance.player))
                 {
-                    ModDebug.Log("DriftModeArrive");
+                    // ModDebug.Log("DriftModeArrive");
                     s_NavigateInstance.Arrive();
                 }
                 else if (__instance.mecha.thrusterLevel < 1)
                 {
-                    ModDebug.Trace("Thruster level too low");
+                    // ModDebug.Trace("Thruster level too low");
                     s_NavigateInstance.Arrive("Thruster Level Too Low".LocalText());
                 }
                 else if (__instance.player.mecha.coreEnergy < s_NavigateMinEnergy.Value)
                 {
-                    ModDebug.Trace("Mecha energy too low");
+                    // ModDebug.Trace("Mecha energy too low");
                     s_NavigateInstance.Arrive("Mecha Energy Too Low".LocalText());
                 }
                 else
                 {
-                    ModDebug.Trace("Switching to fly mode");
+                    // ModDebug.Trace("Switching to fly mode");
                     StellarAutoNavigation.WalkOrDrift.TrySwitchToFly(__instance);
                 }
 
-                ModDebug.Trace("End DriftToFly.PostFix");
+                // ModDebug.Trace("End DriftToFly.PostFix");
             }
         }
 
@@ -381,20 +379,18 @@ namespace AutoNavigate
             /// </summary>
             private static void Prefix(UIStarmap __instance)
             {
-                if ((UnityEngine.Object)__instance.focusPlanet != (UnityEngine.Object)null &&
-                    __instance.focusPlanet.planet != null)
-                {
-                    s_NavigateInstance.target.SetTarget(__instance.focusPlanet.planet);
-                    return;
-                }
-
                 if ((UnityEngine.Object)__instance.focusStar != (UnityEngine.Object)null &&
                     __instance.focusStar.star != null)
                 {
                     s_NavigateInstance.target.SetTarget(__instance.focusStar.star);
                     return;
                 }
-
+                if ((UnityEngine.Object)__instance.focusPlanet != (UnityEngine.Object)null &&
+                    __instance.focusPlanet.planet != null)
+                {
+                    s_NavigateInstance.target.SetTarget(__instance.focusPlanet.planet);
+                    return;
+                }
                 if ((UnityEngine.Object)__instance.focusHive != (UnityEngine.Object)null &&
                     __instance.focusHive.hive != null)
                 {
@@ -404,7 +400,7 @@ namespace AutoNavigate
             }
         }
 
-        [HarmonyPatch(typeof(UIStarmap), "OnTinderClick")]
+        [HarmonyPatch(typeof(UIStarmap), "OnEnemyClick")]
         private class OnSetTinderIndicatorAstro
         {
             /// <summary>
@@ -426,7 +422,6 @@ namespace AutoNavigate
         }
 
 #if QUICK_INDICATOR
-
         /// --------------------------
         /// 快速设置导航标识
         /// --------------------------
@@ -438,7 +433,7 @@ namespace AutoNavigate
                 //if (!s_NavigateInstance.enable)
                 //    return;
 
-                //Indicator 开关
+                // Indicator 开关
                 if (!Input.GetKeyDown(KeyCode.LeftControl))
                     return;
 
@@ -446,6 +441,7 @@ namespace AutoNavigate
                 {
                     __instance.focusStar = __instance.mouseHoverStar;
                     __instance.focusPlanet = null;
+                    __instance.focusHive = null;
                     __instance.OnCursorFunction3Click(0);
 
                     //s_NavigateInstance.target.SetTarget(__instance.mouseHoverStar.star);
@@ -454,8 +450,20 @@ namespace AutoNavigate
 
                 if (__instance.mouseHoverPlanet != null && __instance.mouseHoverPlanet.planet != null)
                 {
-                    __instance.focusPlanet = __instance.mouseHoverPlanet;
                     __instance.focusStar = null;
+                    __instance.focusPlanet = __instance.mouseHoverPlanet;
+                    __instance.focusHive = null;
+                    __instance.OnCursorFunction3Click(0);
+
+                    //s_NavigateInstance.target.SetTarget(__instance.mouseHoverPlanet.planet);
+                    return;
+                }
+                
+                if (__instance.mouseHoverHive != null && __instance.mouseHoverHive.hive != null)
+                {
+                    __instance.focusStar = null;
+                    __instance.focusPlanet = null;
+                    __instance.focusHive = __instance.mouseHoverHive;
                     __instance.OnCursorFunction3Click(0);
 
                     //s_NavigateInstance.target.SetTarget(__instance.mouseHoverPlanet.planet);
@@ -505,6 +513,25 @@ namespace AutoNavigate
                 __instance.OnCursorFunction3Click(0);
             }
         }
+
+        [HarmonyPatch(typeof(UIStarmap), "OnHiveClick")]
+        private class UIStarmap_OnHiveClick
+        {
+            private static void Prefix(UIStarmap __instance, ref UIStarmapDFHive hive)
+            {
+                if (!s_NavigateInstance.enable)
+                    return;
+
+                if (hive == null || hive.hive == null)
+                    return;
+
+                s_NavigateInstance.target.SetTarget(hive.hive);
+
+                __instance.focusHive = hive;
+                __instance.OnCursorFunction3Click(0);
+            }
+        }
+
 #endif
     }
 }

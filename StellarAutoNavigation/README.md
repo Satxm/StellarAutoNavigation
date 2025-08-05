@@ -1,10 +1,10 @@
-Choose Target in the StarMap and then Press K to start navigation.
-
-Used code from https://dsp.thunderstore.io/package/Cyh/AutoStellarNavigation/1.0.4/ as a start.
+Click Indicator Button to choose target, and then Press K to start auto navigation.
 
 Enjoy
 
 # Release Notes
+## v1.0.10 - Update DSP-0.10.33.26513
+By Satxm
 
 ## v1.0.9 - Add AutoNavigation to Tinder/Hive
 Besides, try to Fix [Issue#14](https://github.com/code2X/DspMods/issues/14)
