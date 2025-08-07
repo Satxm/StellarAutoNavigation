@@ -8,7 +8,7 @@ using HarmonyLib;
 
 namespace AutoNavigate
 {
-    [BepInPlugin(__GUID__, __NAME__, "1.0.11")]
+    [BepInPlugin(__GUID__, __NAME__, "1.0.12")]
     public class AutoNavigate : BaseUnityPlugin
     {
         public const string __NAME__ = "StellarAutoNavigation";
@@ -40,6 +40,38 @@ namespace AutoNavigate
                 if (Input.GetKeyDown(KeyCode.K))
                 {
                     lastDist = double.MaxValue;
+
+                    int indicatorAstroId = GameMain.mainPlayer.navigation.indicatorAstroId;
+                    int indicatorEnemyId = GameMain.mainPlayer.navigation.indicatorEnemyId;
+                    int indicatorMsgId = GameMain.mainPlayer.navigation.indicatorMsgId;
+                    if (indicatorAstroId != 0)
+                    {
+                        if (indicatorAstroId > 1000000)
+                        {
+                            s_NavigateInstance.target.SetTarget(GameMain.spaceSector.dfHivesByAstro[indicatorAstroId - 1000000]);
+                        }
+                        else if (indicatorAstroId % 100 != 0)
+                        {
+                            s_NavigateInstance.target.SetTarget(GameMain.galaxy.PlanetById(indicatorAstroId));
+                        }
+                        else
+                        {
+                            s_NavigateInstance.target.SetTarget(GameMain.galaxy.StarById(indicatorAstroId / 100));
+                        }
+                    }
+                    if (indicatorEnemyId < 0 || indicatorEnemyId >= GameMain.spaceSector.enemyPool.Length)
+                    indicatorEnemyId = 0;
+                    else if (GameMain.spaceSector.enemyPool[indicatorEnemyId].id == 0 || GameMain.spaceSector.enemyPool[indicatorEnemyId].dfTinderId == 0)
+                    indicatorEnemyId = 0;
+                    if (indicatorEnemyId != 0)
+                    {
+                        s_NavigateInstance.target.SetTarget(GameMain.spaceSector, indicatorEnemyId);
+                    }
+                    if (indicatorMsgId != 0)
+                    {
+                        s_NavigateInstance.target.SetTarget(GameMain.gameScenario.cosmicMessageManager.messages[indicatorMsgId]);
+                    }
+
                     s_NavigateInstance.ToggleNavigate(player);
                 }
             }

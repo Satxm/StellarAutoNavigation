@@ -5,6 +5,10 @@ Click Indicator Button (or Navigation Button in Control Panel) to choose target,
 Enjoy
 
 # Release Notes
+## v1.0.12
+Fixed when cancelled the auto navigation before arriving the destination then press K again can't start auto navigation.
+By Satxm
+
 ## v1.0.11
 Add Auto Navigation Dark Fog Communicator
 Fix Auto Navigation in Space Guide and Control Panel
